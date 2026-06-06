@@ -1,0 +1,419 @@
+
+<h2 class="sr-only">Benchmark chuyên nghiệp — đo thời gian thực tế các tác vụ CPU, GPU, RAM, trong trình duyệt</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.w{padding:1.5rem 0;font-family:var(--font-mono);font-size:13px}
+.top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;gap:12px}
+.title{font-size:17px;font-weight:500;color:var(--color-text-primary);font-family:var(--font-sans)}
+.sub{font-size:11px;color:var(--color-text-tertiary);margin-top:3px;font-family:var(--font-mono)}
+.device-info{font-size:11px;color:var(--color-text-tertiary);text-align:right;line-height:1.8}
+
+.section-label{font-size:10px;letter-spacing:0.08em;color:var(--color-text-tertiary);margin-bottom:8px;font-family:var(--font-sans)}
+
+.tests{display:flex;flex-direction:column;gap:6px;margin-bottom:1.25rem}
+.test-row{display:grid;grid-template-columns:22px 1fr 110px 80px;align-items:center;gap:10px;padding:9px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:var(--color-background-primary)}
+.test-icon{font-size:15px;color:var(--color-text-tertiary)}
+.test-name{font-size:12px;color:var(--color-text-primary);font-family:var(--font-sans)}
+.test-desc{font-size:10px;color:var(--color-text-tertiary);margin-top:1px;font-family:var(--font-mono)}
+.test-bar-wrap{position:relative;height:4px;background:var(--color-border-tertiary);border-radius:99px;overflow:hidden}
+.test-bar{position:absolute;left:0;top:0;height:100%;width:0;border-radius:99px;background:var(--color-text-primary);transition:width 0.7s cubic-bezier(.4,0,.2,1)}
+.test-val{text-align:right;font-size:12px;font-weight:500;color:var(--color-text-primary);white-space:nowrap}
+.test-unit{font-size:10px;color:var(--color-text-tertiary);font-weight:400}
+
+.status-bar{display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);margin-bottom:1rem;min-height:38px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--color-text-tertiary);flex-shrink:0;transition:background 0.3s}
+.dot.run{background:#378ADD;animation:pulse 0.75s ease-in-out infinite}
+.dot.ok{background:#639922}
+.dot.err{background:#E24B4A}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.2}}
+.status-text{font-size:11px;color:var(--color-text-secondary);flex:1}
+.progress-pct{font-size:11px;color:var(--color-text-tertiary);font-weight:500}
+
+.prog{height:2px;background:var(--color-border-tertiary);border-radius:99px;overflow:hidden;margin-bottom:1rem}
+.prog-fill{height:100%;width:0%;background:var(--color-text-primary);border-radius:99px;transition:width 0.35s ease}
+
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:1.25rem}
+.sum-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:11px 13px}
+.sum-label{font-size:10px;color:var(--color-text-tertiary);margin-bottom:5px;font-family:var(--font-sans)}
+.sum-val{font-size:19px;font-weight:500;color:var(--color-text-primary)}
+.sum-sub{font-size:10px;color:var(--color-text-tertiary);margin-top:2px}
+
+.run-btn{width:100%;padding:10px;font-size:13px;font-weight:500;cursor:pointer;margin-bottom:.75rem;font-family:var(--font-mono)}
+.run-btn:disabled{opacity:0.4;cursor:not-allowed}
+.footer{display:flex;gap:8px}
+.footer button{font-size:11px;font-family:var(--font-mono)}
+
+.caveat{font-size:10px;color:var(--color-text-tertiary);margin-top:.75rem;line-height:1.7;padding:8px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md)}
+</style>
+
+<div class="w">
+  <div class="top">
+    <div>
+      <div class="title">ProBench <span style="font-size:11px;font-weight:400;color:var(--color-text-tertiary);font-family:var(--font-mono)">browser edition</span></div>
+      <div class="sub">đo thời gian thực — không phải điểm số tự đặt</div>
+    </div>
+    <div class="device-info" id="devInfo">—</div>
+  </div>
+
+  <div class="summary">
+    <div class="sum-card">
+      <div class="sum-label">Tổng thời gian</div>
+      <div class="sum-val" id="sumTotal">—</div>
+      <div class="sum-sub">ms (thấp = tốt hơn)</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">CPU cores</div>
+      <div class="sum-val" id="sumCores">—</div>
+      <div class="sum-sub">logical threads</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">RAM estimate</div>
+      <div class="sum-val" id="sumRam">—</div>
+      <div class="sum-sub">GB (nếu có)</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">WebGL</div>
+      <div class="sum-val" id="sumGpu">—</div>
+      <div class="sum-sub">renderer</div>
+    </div>
+  </div>
+
+  <div class="section-label">Các bài test — thời gian thực (ms), thấp hơn = nhanh hơn</div>
+  <div class="tests" id="testList"></div>
+
+  <div class="prog"><div class="prog-fill" id="progFill"></div></div>
+  <div class="status-bar">
+    <div class="dot" id="dot"></div>
+    <span class="status-text" id="statusText">Nhấn Run để bắt đầu. Mỗi bài test đo thời gian thực thi thật.</span>
+    <span class="progress-pct" id="progPct"></span>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="startAll()"><i class="ti ti-player-play" aria-hidden="true"></i> &nbsp;Chạy tất cả</button>
+
+  <div class="footer">
+    <button onclick="doCopy()"><i class="ti ti-copy" aria-hidden="true"></i> Sao chép raw</button>
+    <button onclick="doAnalyze()"><i class="ti ti-chart-bar" aria-hidden="true"></i> Phân tích ↗</button>
+  </div>
+
+  <div class="caveat">
+    Đây là benchmark <strong>trong trình duyệt</strong> — kết quả phụ thuộc vào tab đang mở, nhiệt độ CPU, và giới hạn sandbox của JS. Thời gian đo là thật, nhưng không thể so sánh 1:1 với Geekbench hay AnTuTu (native). Chạy lại vài lần để lấy giá trị ổn định.
+  </div>
+</div>
+
+<script>
+const TESTS = [
+  {
+    id:'fib', icon:'ti-math-function', name:'Fibonacci (đệ quy)',
+    desc:'fib(42) — đo sức mạnh integer CPU đơn nhân',
+    unit:'ms', maxMs:3000,
+    run: async () => {
+      function fib(n){return n<=1?n:fib(n-1)+fib(n-2)}
+      const t=performance.now(); fib(42); return +(performance.now()-t).toFixed(2);
+    }
+  },
+  {
+    id:'sort', icon:'ti-arrows-sort', name:'Sort 1M phần tử',
+    desc:'Array.sort() trên 1,000,000 số ngẫu nhiên',
+    unit:'ms', maxMs:600,
+    run: async () => {
+      const a=new Float64Array(1e6).map(()=>Math.random());
+      const t=performance.now(); a.sort(); return +(performance.now()-t).toFixed(2);
+    }
+  },
+  {
+    id:'crypto', icon:'ti-lock', name:'SHA-256 (1000 lần)',
+    desc:'WebCrypto API — hash 1KB data × 1000',
+    unit:'ms', maxMs:2000,
+    run: async () => {
+      const enc=new TextEncoder(); const data=enc.encode('x'.repeat(1024));
+      const t=performance.now();
+      for(let i=0;i<1000;i++) await crypto.subtle.digest('SHA-256',data);
+      return +(performance.now()-t).toFixed(2);
+    }
+  },
+  {
+    id:'fft', icon:'ti-wave-sine', name:'FFT 1M điểm',
+    desc:'Fast Fourier Transform thủ công — tính toán khoa học',
+    unit:'ms', maxMs:2000,
+    run: async () => {
+      const N=1<<20; const re=new Float64Array(N); const im=new Float64Array(N);
+      for(let i=0;i<N;i++){re[i]=Math.sin(2*Math.PI*i/N); im[i]=0;}
+      const t=performance.now();
+      for(let len=2;len<=N;len<<=1){
+        const ang=-2*Math.PI/len;
+        for(let i=0;i<N;i+=len){
+          let wr=1,wi=0,wcos=Math.cos(ang),wsin=Math.sin(ang);
+          for(let j=0;j<len>>1;j++){
+            const ur=re[i+j],ui=im[i+j];
+            const vr=re[i+j+len/2]*wr-im[i+j+len/2]*wi;
+            const vi=re[i+j+len/2]*wi+im[i+j+len/2]*wr;
+            re[i+j]=ur+vr; im[i+j]=ui+vi;
+            re[i+j+len/2]=ur-vr; im[i+j+len/2]=ui-vi;
+            const tmp=wr*wcos-wi*wsin; wi=wr*wsin+wi*wcos; wr=tmp;
+          }
+        }
+      }
+      return +(performance.now()-t).toFixed(2);
+    }
+  },
+  {
+    id:'mem', icon:'ti-database', name:'Băng thông RAM',
+    desc:'Ghi + đọc tuần tự 128MB Float64',
+    unit:'GB/s', maxMs:null, isGbps:true,
+    run: async () => {
+      const MB=128; const arr=new Float64Array(MB*1024*128);
+      const t=performance.now();
+      for(let i=0;i<arr.length;i++) arr[i]=i*0.001;
+      let s=0; for(let i=0;i<arr.length;i++) s+=arr[i];
+      const elapsed=(performance.now()-t)/1000;
+      const gbps=((MB*2)/1024)/elapsed;
+      return +gbps.toFixed(2);
+    }
+  },
+  {
+    id:'wasm', icon:'ti-code', name:'Wasm-like: matrix 512×512',
+    desc:'Nhân ma trận 512×512 thuần JS — float ops',
+    unit:'ms', maxMs:5000,
+    run: async () => {
+      const N=512; const A=new Float32Array(N*N).map(()=>Math.random());
+      const B=new Float32Array(N*N).map(()=>Math.random());
+      const C=new Float32Array(N*N);
+      const t=performance.now();
+      for(let i=0;i<N;i++) for(let k=0;k<N;k++){
+        const a=A[i*N+k];
+        for(let j=0;j<N;j++) C[i*N+j]+=a*B[k*N+j];
+      }
+      return +(performance.now()-t).toFixed(2);
+    }
+  },
+  {
+    id:'canvas', icon:'ti-photo', name:'Canvas 2D render',
+    desc:'Vẽ 10,000 vòng tròn ngẫu nhiên lên OffscreenCanvas',
+    unit:'ms', maxMs:1000,
+    run: async () => {
+      let ctx;
+      if(typeof OffscreenCanvas!=='undefined'){
+        const oc=new OffscreenCanvas(1024,1024); ctx=oc.getContext('2d');
+      } else {
+        const cv=document.createElement('canvas'); cv.width=1024; cv.height=1024; ctx=cv.getContext('2d');
+      }
+      const t=performance.now();
+      for(let i=0;i<10000;i++){
+        ctx.beginPath();
+        ctx.arc(Math.random()*1024,Math.random()*1024,Math.random()*20+2,0,Math.PI*2);
+        ctx.fillStyle=`hsl(${Math.random()*360},70%,50%)`;
+        ctx.fill();
+      }
+      return +(performance.now()-t).toFixed(2);
+    }
+  },
+  {
+    id:'webgl', icon:'ti-device-desktop', name:'WebGL shader stress',
+    desc:'Render 120 frame GLSL fragment shader phức tạp',
+    unit:'ms', maxMs:3000,
+    run: async () => {
+      return new Promise(resolve=>{
+        const cv=document.createElement('canvas'); cv.width=512; cv.height=512;
+        const gl=cv.getContext('webgl');
+        if(!gl){resolve(9999);return;}
+        const vs=`attribute vec2 p;void main(){gl_Position=vec4(p,0,1);}`;
+        const fs=`precision highp float;uniform float t;uniform vec2 res;
+void main(){
+  vec2 uv=gl_FragCoord.xy/res;
+  vec2 p=uv*2.-1.;
+  float d=length(p);
+  float v=sin(d*20.-t*3.)*0.5+0.5;
+  float v2=cos(p.x*15.+t)*sin(p.y*15.-t)*0.5+0.5;
+  float ring=smoothstep(0.01,0.,abs(d-0.5-sin(t)*0.2));
+  gl_FragColor=vec4(v,v2,ring,1.);
+}`;
+        function mkS(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);return s;}
+        const prog=gl.createProgram();
+        gl.attachShader(prog,mkS(gl.VERTEX_SHADER,vs));
+        gl.attachShader(prog,mkS(gl.FRAGMENT_SHADER,fs));
+        gl.linkProgram(prog); gl.useProgram(prog);
+        const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+        gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+        const loc=gl.getAttribLocation(prog,'p');
+        gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+        const tLoc=gl.getUniformLocation(prog,'t');
+        const rLoc=gl.getUniformLocation(prog,'res');
+        gl.uniform2f(rLoc,512,512);
+        let f=0; const FRAMES=120; const t0=performance.now();
+        function frame(){
+          gl.uniform1f(tLoc,f*0.05);
+          gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+          gl.finish(); f++;
+          if(f<FRAMES) requestAnimationFrame(frame);
+          else resolve(+(performance.now()-t0).toFixed(2));
+        }
+        requestAnimationFrame(frame);
+      });
+    }
+  },
+  {
+    id:'multi', icon:'ti-cpu-2', name:'Multi-thread (Workers)',
+    desc:'Prime sieve song song trên tất cả logical cores',
+    unit:'ms', maxMs:4000,
+    run: async () => {
+      const cores=navigator.hardwareConcurrency||4;
+      const t=performance.now();
+      const code=`onmessage=function(e){
+        const limit=e.data; const sieve=new Uint8Array(limit+1);
+        for(let i=2;i*i<=limit;i++) if(!sieve[i]) for(let j=i*i;j<=limit;j+=i) sieve[j]=1;
+        let count=0; for(let i=2;i<=limit;i++) if(!sieve[i]) count++;
+        postMessage(count);
+      }`;
+      const blob=new Blob([code],{type:'application/javascript'});
+      const url=URL.createObjectURL(blob);
+      const promises=Array.from({length:cores},()=>new Promise(res=>{
+        const w=new Worker(url); w.onmessage=e=>{w.terminate();res(e.data);}; w.postMessage(5000000);
+      }));
+      await Promise.all(promises);
+      URL.revokeObjectURL(url);
+      return +(performance.now()-t).toFixed(2);
+    }
+  },
+  {
+    id:'json', icon:'ti-braces', name:'JSON parse/stringify',
+    desc:'Parse + stringify object 10MB × 20 lần',
+    unit:'ms', maxMs:3000,
+    run: async () => {
+      const obj={data:Array.from({length:50000},(_,i)=>({id:i,name:'item_'+i,value:Math.random(),tags:['a','b','c'],active:i%2===0}))};
+      const str=JSON.stringify(obj);
+      const t=performance.now();
+      for(let i=0;i<20;i++){const o=JSON.parse(str);JSON.stringify(o);}
+      return +(performance.now()-t).toFixed(2);
+    }
+  }
+];
+
+let results={};
+let running=false;
+
+function renderTests(){
+  const list=document.getElementById('testList');
+  list.innerHTML='';
+  TESTS.forEach(t=>{
+    const row=document.createElement('div');
+    row.className='test-row'; row.id='row-'+t.id;
+    row.innerHTML=`<i class="ti ${t.icon} test-icon" aria-hidden="true"></i>
+      <div><div class="test-name">${t.name}</div><div class="test-desc">${t.desc}</div></div>
+      <div class="test-bar-wrap"><div class="test-bar" id="bar-${t.id}"></div></div>
+      <div class="test-val" id="val-${t.id}"><span style="color:var(--color-text-tertiary)">—</span></div>`;
+    list.appendChild(row);
+  });
+}
+
+function setVal(id, val, unit, maxMs){
+  const el=document.getElementById('val-'+id);
+  el.innerHTML=`${val} <span class="test-unit">${unit}</span>`;
+  if(maxMs){
+    const pct=Math.min(100,Math.round((val/maxMs)*100));
+    document.getElementById('bar-'+id).style.width=pct+'%';
+  } else {
+    document.getElementById('bar-'+id).style.width=Math.min(100,Math.round(val/20*100))+'%';
+  }
+}
+
+function setStatus(txt,state){
+  document.getElementById('statusText').textContent=txt;
+  const d=document.getElementById('dot');
+  d.className='dot'+(state?' '+state:'');
+}
+
+function setProgress(n,total){
+  const pct=Math.round((n/total)*100);
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('progPct').textContent=pct+'%';
+}
+
+function detectDevice(){
+  const ua=navigator.userAgent;
+  const cores=navigator.hardwareConcurrency||'?';
+  const ram=navigator.deviceMemory;
+  let os='Unknown';
+  if(/iPhone|iPad/.test(ua)) os=/iPhone/.test(ua)?'iOS':'iPadOS';
+  else if(/Android/.test(ua)) os='Android';
+  else if(/Mac/.test(ua)) os='macOS';
+  else if(/Windows/.test(ua)) os='Windows';
+  else if(/Linux/.test(ua)) os='Linux';
+  document.getElementById('devInfo').innerHTML=os+'<br>'+cores+' cores'+(ram?' · '+ram+'GB RAM':'');
+  document.getElementById('sumCores').textContent=cores;
+  document.getElementById('sumRam').textContent=ram||'N/A';
+
+  const cv=document.createElement('canvas');
+  const gl=cv.getContext('webgl');
+  if(gl){
+    const ext=gl.getExtension('WEBGL_debug_renderer_info');
+    const renderer=ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'WebGL OK';
+    const short=renderer.length>18?renderer.substring(0,18)+'…':renderer;
+    document.getElementById('sumGpu').textContent=short;
+    document.getElementById('sumGpu').title=renderer;
+  } else {
+    document.getElementById('sumGpu').textContent='N/A';
+  }
+}
+
+async function startAll(){
+  if(running) return;
+  running=true;
+  results={};
+  const btn=document.getElementById('runBtn');
+  btn.disabled=true; btn.textContent='Đang chạy...';
+  TESTS.forEach(t=>{
+    document.getElementById('val-'+t.id).innerHTML='<span style="color:var(--color-text-tertiary)">…</span>';
+    document.getElementById('bar-'+t.id).style.width='0%';
+  });
+  document.getElementById('sumTotal').textContent='—';
+  setProgress(0,TESTS.length);
+
+  let totalMs=0;
+  for(let i=0;i<TESTS.length;i++){
+    const t=TESTS[i];
+    setStatus('Đang chạy: '+t.name+' ('+( i+1)+'/'+TESTS.length+')', 'run');
+    await new Promise(r=>setTimeout(r,40));
+    try{
+      const val=await t.run();
+      results[t.id]=val;
+      if(!t.isGbps) totalMs+=val;
+      setVal(t.id, val, t.unit, t.maxMs);
+    }catch(e){
+      document.getElementById('val-'+t.id).innerHTML='<span style="color:var(--color-text-danger)">lỗi</span>';
+    }
+    setProgress(i+1,TESTS.length);
+    await new Promise(r=>setTimeout(r,20));
+  }
+
+  document.getElementById('sumTotal').textContent=Math.round(totalMs).toLocaleString();
+  setStatus('Hoàn tất! Tổng '+Math.round(totalMs).toLocaleString()+'ms cho 9 bài test CPU/RAM/GPU.','ok');
+  btn.disabled=false;
+  btn.innerHTML='<i class="ti ti-refresh" aria-hidden="true"></i> &nbsp;Chạy lại';
+  running=false;
+}
+
+function doCopy(){
+  if(!Object.keys(results).length){setStatus('Hãy chạy benchmark trước!','');return;}
+  let txt='ProBench browser edition\n'+'='.repeat(32)+'\n';
+  TESTS.forEach(t=>{
+    if(results[t.id]!=null) txt+=t.name.padEnd(28)+': '+results[t.id]+' '+(t.unit||'ms')+'\n';
+  });
+  txt+='\nPlatform: '+navigator.userAgent;
+  navigator.clipboard.writeText(txt).then(()=>setStatus('Đã sao chép raw data!','ok'));
+}
+
+function doAnalyze(){
+  if(!Object.keys(results).length){
+    sendPrompt('Giải thích các chỉ số benchmark trong trình duyệt: Fibonacci đệ quy, FFT, SHA-256, ma trận multiplication, băng thông RAM, WebGL shader, Web Worker có ý nghĩa gì với hiệu năng thực tế?');
+    return;
+  }
+  let msg='Tôi vừa chạy ProBench trên trình duyệt và có kết quả:\n\n';
+  TESTS.forEach(t=>{if(results[t.id]!=null) msg+=`- ${t.name}: ${results[t.id]} ${t.unit||'ms'}\n`;});
+  msg+='\nCores: '+(navigator.hardwareConcurrency||'?')+', RAM: '+(navigator.deviceMemory||'N/A')+'GB\n';
+  msg+='\nHãy phân tích từng chỉ số — so với mức tham chiếu thực tế, điểm nào mạnh/yếu, và tại sao. Lưu ý đây là benchmark trong browser nên có giới hạn sandbox.';
+  sendPrompt(msg);
+}
+
+renderTests();
+detectDevice();
+</script>
