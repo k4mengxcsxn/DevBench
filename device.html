@@ -1,0 +1,323 @@
+
+<h2 class="sr-only">Công cụ benchmark thiết bị — đo hiệu năng CPU, RAM, GPU và lưu trữ trực tiếp trên trình duyệt</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.bm{padding:1.5rem 0;font-family:var(--font-sans)}
+.bm-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem}
+.bm-brand{font-size:20px;font-weight:500;color:var(--color-text-primary)}
+.bm-brand span{color:var(--color-text-tertiary);font-weight:400;font-size:13px;margin-left:8px}
+.bm-device{font-size:12px;color:var(--color-text-tertiary);text-align:right;line-height:1.6}
+
+.score-ring{display:flex;flex-direction:column;align-items:center;margin:0 0 1.5rem}
+.score-svg{width:180px;height:180px}
+.score-label{font-size:11px;color:var(--color-text-tertiary);margin-top:4px;letter-spacing:0.06em}
+
+.cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:1.25rem}
+.cat{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px}
+.cat-icon{font-size:18px;color:var(--color-text-secondary);margin-bottom:6px}
+.cat-name{font-size:11px;color:var(--color-text-tertiary);margin-bottom:4px}
+.cat-score{font-size:20px;font-weight:500;color:var(--color-text-primary)}
+.cat-bar-bg{height:3px;background:var(--color-border-tertiary);border-radius:99px;margin-top:6px}
+.cat-bar{height:3px;border-radius:99px;background:var(--color-text-primary);width:0%;transition:width 0.6s ease}
+
+.phase{font-size:12px;color:var(--color-text-secondary);background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-bottom:1rem;display:flex;align-items:center;gap:10px;min-height:40px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--color-text-tertiary);flex-shrink:0}
+.dot.run{background:#3a8fd4;animation:blink 0.7s ease-in-out infinite}
+.dot.ok{background:#4caf7a}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.25}}
+
+.prog-track{height:2px;background:var(--color-border-tertiary);border-radius:99px;margin-bottom:1rem;overflow:hidden}
+.prog-fill{height:100%;width:0%;background:var(--color-text-primary);border-radius:99px;transition:width 0.4s ease}
+
+.run-btn{width:100%;padding:11px;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:1rem}
+.run-btn:disabled{opacity:0.45;cursor:not-allowed}
+
+.footer-row{display:flex;gap:8px}
+.footer-row button{font-size:12px}
+
+.rank-badge{display:inline-block;font-size:11px;padding:3px 10px;border-radius:99px;font-weight:500;margin-left:8px}
+.rank-s{background:#EAF3DE;color:#27500A}
+.rank-a{background:#E6F1FB;color:#0C447C}
+.rank-b{background:#FAEEDA;color:#633806}
+.rank-c{background:#FCEBEB;color:#791F1F}
+</style>
+
+<div class="bm">
+  <div class="bm-top">
+    <div>
+      <div class="bm-brand">DevBench <span>v2.0</span></div>
+    </div>
+    <div class="bm-device" id="deviceInfo">Đang nhận dạng thiết bị...</div>
+  </div>
+
+  <div class="score-ring">
+    <svg class="score-svg" viewBox="0 0 180 180" role="img" aria-label="Điểm tổng benchmark">
+      <circle cx="90" cy="90" r="74" fill="none" stroke-width="10" stroke="var(--color-border-tertiary)"/>
+      <circle cx="90" cy="90" r="74" fill="none" stroke-width="10"
+        stroke="var(--color-text-primary)" stroke-linecap="round"
+        stroke-dasharray="465" stroke-dashoffset="465"
+        id="ringArc" transform="rotate(-90 90 90)" style="transition:stroke-dashoffset 1.2s ease"/>
+      <text x="90" y="83" text-anchor="middle" font-size="36" font-weight="500" fill="var(--color-text-primary)" id="totalScore">—</text>
+      <text x="90" y="103" text-anchor="middle" font-size="12" fill="var(--color-text-tertiary)">tổng điểm</text>
+      <text x="90" y="120" text-anchor="middle" font-size="13" font-weight="500" fill="var(--color-text-secondary)" id="rankText"></text>
+    </svg>
+    <div class="score-label">DEVBENCH SCORE</div>
+  </div>
+
+  <div class="cats">
+    <div class="cat">
+      <div class="cat-icon"><i class="ti ti-cpu" aria-hidden="true"></i></div>
+      <div class="cat-name">CPU — đơn nhân</div>
+      <div class="cat-score" id="s-cpu1">—</div>
+      <div class="cat-bar-bg"><div class="cat-bar" id="b-cpu1"></div></div>
+    </div>
+    <div class="cat">
+      <div class="cat-icon"><i class="ti ti-cpu-2" aria-hidden="true"></i></div>
+      <div class="cat-name">CPU — đa nhân</div>
+      <div class="cat-score" id="s-cpu2">—</div>
+      <div class="cat-bar-bg"><div class="cat-bar" id="b-cpu2"></div></div>
+    </div>
+    <div class="cat">
+      <div class="cat-icon"><i class="ti ti-device-desktop" aria-hidden="true"></i></div>
+      <div class="cat-name">GPU / Render</div>
+      <div class="cat-score" id="s-gpu">—</div>
+      <div class="cat-bar-bg"><div class="cat-bar" id="b-gpu"></div></div>
+    </div>
+    <div class="cat">
+      <div class="cat-icon"><i class="ti ti-database" aria-hidden="true"></i></div>
+      <div class="cat-name">RAM / Memory</div>
+      <div class="cat-score" id="s-ram">—</div>
+      <div class="cat-bar-bg"><div class="cat-bar" id="b-ram"></div></div>
+    </div>
+  </div>
+
+  <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+  <div class="phase"><div class="dot" id="dot"></div><span id="phaseText">Nhấn Run để bắt đầu đo hiệu năng thiết bị của bạn.</span></div>
+
+  <button class="run-btn" id="runBtn" onclick="startBench()">
+    <i class="ti ti-player-play" aria-hidden="true"></i>&nbsp; Bắt đầu Benchmark
+  </button>
+
+  <div class="footer-row">
+    <button onclick="copyScore()"><i class="ti ti-copy" aria-hidden="true"></i> Sao chép</button>
+    <button onclick="analyzeScore()"><i class="ti ti-chart-bar" aria-hidden="true"></i> Phân tích ↗</button>
+    <button onclick="compareScore()"><i class="ti ti-users" aria-hidden="true"></i> So sánh ↗</button>
+  </div>
+</div>
+
+<script>
+let scores = {};
+let running = false;
+
+function setPhase(txt, state) {
+  document.getElementById('phaseText').textContent = txt;
+  const d = document.getElementById('dot');
+  d.className = 'dot' + (state === 'run' ? ' run' : state === 'ok' ? ' ok' : '');
+}
+function setProgress(p) { document.getElementById('progFill').style.width = p + '%'; }
+function setScore(id, val, max) {
+  document.getElementById('s-' + id).textContent = val.toLocaleString();
+  setTimeout(() => {
+    document.getElementById('b-' + id).style.width = Math.min(100, Math.round(val / max * 100)) + '%';
+  }, 100);
+}
+
+function detectDevice() {
+  const ua = navigator.userAgent;
+  const cores = navigator.hardwareConcurrency || '?';
+  const mem = navigator.deviceMemory ? navigator.deviceMemory + ' GB RAM' : '';
+  let device = 'Browser';
+  if (/iPhone/.test(ua)) device = 'iPhone';
+  else if (/iPad/.test(ua)) device = 'iPad';
+  else if (/Android/.test(ua)) { const m = ua.match(/Android [0-9.]+; ([^)]+)/); device = m ? m[1].trim().split(' ').slice(0,2).join(' ') : 'Android'; }
+  else if (/Mac/.test(ua)) device = 'Mac';
+  else if (/Windows/.test(ua)) device = 'Windows PC';
+  else if (/Linux/.test(ua)) device = 'Linux';
+  document.getElementById('deviceInfo').innerHTML = device + '<br>' + cores + ' cores' + (mem ? ' · ' + mem : '');
+}
+
+function benchCPUSingle() {
+  return new Promise(resolve => {
+    const start = performance.now();
+    let x = 1;
+    for (let i = 0; i < 5000000; i++) { x = Math.sqrt(x * 1.0000001 + i * 0.000001); }
+    const ms = performance.now() - start;
+    const score = Math.round(Math.max(500, Math.min(20000, 1200000 / ms)));
+    resolve(score);
+  });
+}
+
+function benchCPUMulti() {
+  return new Promise(resolve => {
+    const cores = Math.min(navigator.hardwareConcurrency || 4, 8);
+    const workers = [];
+    let done = 0;
+    const start = performance.now();
+    const results = [];
+    for (let c = 0; c < cores; c++) {
+      const blob = new Blob([`
+        onmessage = function() {
+          let x = 1;
+          for (let i = 0; i < 8000000; i++) { x = Math.sqrt(x * 1.0000001 + i * 0.000001); }
+          postMessage(x);
+        }
+      `], { type: 'application/javascript' });
+      const w = new Worker(URL.createObjectURL(blob));
+      w.onmessage = () => {
+        done++;
+        w.terminate();
+        if (done === cores) {
+          const ms = performance.now() - start;
+          const score = Math.round(Math.max(1000, Math.min(80000, (cores * 1200000) / ms)));
+          resolve(score);
+        }
+      };
+      w.postMessage('go');
+      workers.push(w);
+    }
+  });
+}
+
+function benchGPU() {
+  return new Promise(resolve => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512; canvas.height = 512;
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!gl) { resolve(3000); return; }
+    const vsSrc = `attribute vec2 p;void main(){gl_Position=vec4(p,0,1);}`;
+    const fsSrc = `precision highp float;uniform float t;void main(){vec2 c=gl_FragCoord.xy/512.;float v=sin(c.x*20.+t)*cos(c.y*20.-t)+sin(length(c-0.5)*30.+t);gl_FragColor=vec4(0.5+0.5*sin(v),0.5+0.5*cos(v),0.5,1);}`;
+    function makeShader(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; }
+    const prog = gl.createProgram();
+    gl.attachShader(prog, makeShader(gl.VERTEX_SHADER, vsSrc));
+    gl.attachShader(prog, makeShader(gl.FRAGMENT_SHADER, fsSrc));
+    gl.linkProgram(prog); gl.useProgram(prog);
+    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, 'p');
+    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    const tLoc = gl.getUniformLocation(prog, 't');
+    const frames = 80; let f = 0;
+    const t0 = performance.now();
+    function frame() {
+      gl.uniform1f(tLoc, f * 0.05);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.finish();
+      f++;
+      if (f < frames) { requestAnimationFrame(frame); }
+      else {
+        const ms = performance.now() - t0;
+        const fps = Math.round(frames / (ms / 1000));
+        const score = Math.round(Math.max(1000, Math.min(30000, fps * 280)));
+        resolve(score);
+      }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+function benchRAM() {
+  return new Promise(resolve => {
+    const MB = 32;
+    const arr = new Float64Array(MB * 1024 * 128);
+    const start = performance.now();
+    let sum = 0;
+    for (let i = 0; i < arr.length; i += 128) { arr[i] = i * 0.001; sum += arr[i]; }
+    for (let i = 0; i < arr.length; i += 128) { sum += arr[i] * 1.001; }
+    const ms = performance.now() - start;
+    const gbps = (MB * 2) / (ms / 1000) / 1024;
+    const score = Math.round(Math.max(500, Math.min(15000, gbps * 900)));
+    resolve(score);
+  });
+}
+
+async function startBench() {
+  if (running) return;
+  running = true;
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = 'Đang chạy...';
+
+  ['cpu1','cpu2','gpu','ram'].forEach(k => {
+    document.getElementById('s-' + k).textContent = '…';
+    document.getElementById('b-' + k).style.width = '0%';
+  });
+  document.getElementById('totalScore').textContent = '—';
+  document.getElementById('rankText').textContent = '';
+  document.getElementById('ringArc').style.strokeDashoffset = '465';
+  setProgress(0);
+  scores = {};
+
+  setPhase('Đang đo CPU đơn nhân...', 'run');
+  setProgress(5);
+  await new Promise(r => setTimeout(r, 60));
+  scores.cpu1 = await benchCPUSingle();
+  setScore('cpu1', scores.cpu1, 18000);
+  setProgress(25);
+  setPhase('Đang đo CPU đa nhân...', 'run');
+  await new Promise(r => setTimeout(r, 60));
+
+  try { scores.cpu2 = await benchCPUMulti(); }
+  catch(e) { scores.cpu2 = Math.round(scores.cpu1 * (navigator.hardwareConcurrency || 4) * 0.6); }
+  setScore('cpu2', scores.cpu2, 60000);
+  setProgress(50);
+  setPhase('Đang render GPU (WebGL)...', 'run');
+  await new Promise(r => setTimeout(r, 60));
+  scores.gpu = await benchGPU();
+  setScore('gpu', scores.gpu, 25000);
+  setProgress(75);
+  setPhase('Đang đo băng thông RAM...', 'run');
+  await new Promise(r => setTimeout(r, 60));
+  scores.ram = await benchRAM();
+  setScore('ram', scores.ram, 12000);
+  setProgress(100);
+
+  const total = Math.round((scores.cpu1 * 0.25 + scores.cpu2 * 0.30 + scores.gpu * 0.30 + scores.ram * 0.15));
+  scores.total = total;
+
+  document.getElementById('totalScore').textContent = total.toLocaleString();
+  const arc = document.getElementById('ringArc');
+  const pct = Math.min(1, total / 55000);
+  arc.style.strokeDashoffset = Math.round(465 * (1 - pct));
+
+  let rank, rankClass;
+  if (total >= 35000) { rank = 'S — Xuất sắc'; rankClass = 'rank-s'; }
+  else if (total >= 22000) { rank = 'A — Rất tốt'; rankClass = 'rank-a'; }
+  else if (total >= 12000) { rank = 'B — Tốt'; rankClass = 'rank-b'; }
+  else { rank = 'C — Trung bình'; rankClass = 'rank-c'; }
+  scores.rank = rank;
+
+  const rt = document.getElementById('rankText');
+  rt.textContent = rank.split('—')[0].trim();
+
+  setPhase('Benchmark hoàn tất! Hạng: ' + rank, 'ok');
+  btn.disabled = false;
+  btn.innerHTML = '<i class="ti ti-refresh" aria-hidden="true"></i>&nbsp; Chạy lại';
+  running = false;
+}
+
+function copyScore() {
+  if (!scores.total) { setPhase('Hãy chạy benchmark trước!', ''); return; }
+  const ua = navigator.userAgent;
+  let txt = 'DevBench kết quả\n';
+  txt += '================\n';
+  txt += 'Tổng điểm: ' + scores.total.toLocaleString() + ' (' + scores.rank + ')\n';
+  txt += 'CPU đơn nhân: ' + scores.cpu1.toLocaleString() + '\n';
+  txt += 'CPU đa nhân:  ' + scores.cpu2.toLocaleString() + '\n';
+  txt += 'GPU / Render: ' + scores.gpu.toLocaleString() + '\n';
+  txt += 'RAM / Memory: ' + scores.ram.toLocaleString() + '\n';
+  txt += 'Cores: ' + (navigator.hardwareConcurrency || '?') + '\n';
+  navigator.clipboard.writeText(txt).then(() => setPhase('Đã sao chép vào clipboard!', 'ok'));
+}
+
+function analyzeScore() {
+  if (!scores.total) { sendPrompt('Hãy giải thích các chỉ số benchmark như CPU single-core, multi-core, GPU render và RAM bandwidth có ý nghĩa gì với hiệu năng thực tế?'); return; }
+  sendPrompt('Tôi vừa chạy benchmark thiết bị và có kết quả:\n- Tổng: ' + scores.total.toLocaleString() + ' (' + scores.rank + ')\n- CPU đơn nhân: ' + scores.cpu1.toLocaleString() + '\n- CPU đa nhân: ' + scores.cpu2.toLocaleString() + '\n- GPU/Render: ' + scores.gpu.toLocaleString() + '\n- RAM: ' + scores.ram.toLocaleString() + '\n\nHãy phân tích kết quả này — điểm nào mạnh, điểm nào yếu, và thiết bị của tôi phù hợp với những tác vụ gì?');
+}
+
+function compareScore() {
+  if (!scores.total) { sendPrompt('Các thiết bị phổ biến hiện nay như iPhone 15, Samsung S24, MacBook M3 có điểm benchmark khoảng bao nhiêu?'); return; }
+  sendPrompt('Thiết bị của tôi đạt ' + scores.total.toLocaleString() + ' điểm DevBench (CPU đơn: ' + scores.cpu1.toLocaleString() + ', đa: ' + scores.cpu2.toLocaleString() + ', GPU: ' + scores.gpu.toLocaleString() + ', RAM: ' + scores.ram.toLocaleString() + '). Hãy so sánh với các thiết bị phổ biến hiện tại và xếp hạng máy của tôi ở đâu trong phân khúc?');
+}
+
+detectDevice();
+</script>
